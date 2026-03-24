@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/command/:path*", "destination": "/api/command" }
-  ]
-}

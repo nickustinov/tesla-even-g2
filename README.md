@@ -6,24 +6,18 @@ Tesla vehicle controls for [Even Realities G2](https://www.evenrealities.com/) s
 
 35+ commands across climate, charging, security, windows and more – all from your glasses. View battery, range, temperatures, charging and sentry status at a glance with a live map showing your car's location.
 
-### Use now
-
-Scan this QR code in the Even Realities app (Even Hub page) to use on your G2 glasses:
-
-<img src="qr.png" width="200" />
-
 ![Dashboard screenshot](screenshot.png)
 
-## System architecture
+## Architecture
+
+Fully client-side. The app runs as static HTML + JS in the Even Hub webview and talks directly to the Tessie API.
 
 ```
-[G2 glasses] <--BLE--> [Even app / simulator] <--HTTP--> [Proxy server] <--HTTPS--> [Tessie API]
-                                                                    \--- [CartoDB tiles]
+[G2 glasses] <--BLE--> [Even app webview] <--HTTPS--> [Tessie API]
+                                       \--- [CartoDB tiles]
 ```
 
-The proxy server keeps the Tessie API token server-side, forwards commands with query parameters for parameterized operations (temperature, charge limit, etc.), and renders static map images from CartoDB dark tiles.
-
-## App architecture
+Your Tessie token is stored in `localStorage` on your phone and sent directly to `api.tessie.com`. It never touches any third-party server.
 
 ```
 g2/
@@ -31,16 +25,13 @@ g2/
   main.ts          Bridge connection + settings UI bootstrap
   app.ts           Thin orchestrator: initApp, refreshState
   state.ts         VehicleState type, app state singleton, bridge holder
-  api.ts           HTTP client: getState, sendCommand (with params), getMap
+  api.ts           Direct Tessie API client: getState, sendCommand, getMap
   actions.ts       Action type system, all 6 categories with 35+ commands
   navigation.ts    Stack-based menu navigation controller
   events.ts        Event normalisation + screen-specific dispatch
   renderer.ts      All screen rendering (dashboard, menu, loading, confirmation)
   layout.ts        Display dimension constants
-  ui.tsx           React settings panel (token, server URL, connection status)
-
-server/src/
-  index.ts         Hono proxy: Tessie API, query param forwarding, map rendering
+  ui.tsx           React settings panel (token input, connection status)
 ```
 
 ### Data flow
@@ -73,49 +64,32 @@ Every non-dashboard screen has "< Back" at index 0. Double-tap always goes back 
 
 ## Setup
 
-### 1. Server
-
-```bash
-cd server
-npm install
-npm run dev
-```
-
-The server listens on `http://localhost:3001`. It accepts the Tessie API token from the browser settings panel via the `X-Tessie-Token` header.
-
-Get a Tessie token at [tessie.com](https://www.tessie.com/) under Settings.
-
-### 2. G2 app
-
 ```bash
 npm install
 npm run dev
 ```
 
-Opens on `http://localhost:5173`. Enter your Tessie token and server URL in the settings panel, then click **Connect Tesla**.
+Opens on `http://localhost:5173`. Enter your Tessie token in the settings panel, then click **Connect Tesla**.
 
-### 3. Running on glasses
+Get a Tessie token at [tessie.com](https://www.tessie.com/) under Settings > Developer.
 
-In a second terminal, generate a QR code and scan it with the Even App:
+### Running on glasses
+
+Generate a QR code and scan it with the Even App:
 
 ```bash
 npx evenhub qr --http --ip <your-local-ip> --port 5173
 ```
 
-### 4. G2 simulator
+### G2 simulator
 
 Requires [even-dev](https://github.com/BxNxM/even-dev) (Unified Even Hub Simulator v0.0.2).
 
 ```bash
-# Copy into even-dev (adjust paths to your local setup)
 cp -r "$(pwd)/g2" /path/to/even-dev/apps/tesla
-
-# Run
 cd /path/to/even-dev
 APP_NAME=tesla ./start-even.sh
 ```
-
-Enter your Tessie token in the browser settings panel, then click **Connect Tesla** to load the dashboard on the glasses display.
 
 ## Glasses UI
 
@@ -144,9 +118,7 @@ The dashboard shows battery level, range, lock state and charging status in the 
 
 ## Tech stack
 
-- **Server:** [Hono](https://hono.dev/) + Node + [sharp](https://sharp.pixelplumbing.com/)
 - **Map tiles:** [CartoDB dark matter](https://github.com/CartoDB/basemap-styles) (free, no API key)
 - **G2 frontend:** TypeScript + [Even Hub SDK](https://www.npmjs.com/package/@evenrealities/even_hub_sdk)
 - **Settings UI:** React + [@jappyjan/even-realities-ui](https://www.npmjs.com/package/@jappyjan/even-realities-ui)
 - **Vehicle API:** [Tessie](https://developer.tessie.com)
-- **Hosting:** [Vercel](https://vercel.com/) (serverless API + static frontend)

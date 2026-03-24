@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import teslaLogo from '../src/tesla.png'
 import { createRoot } from 'react-dom/client'
 import { checkConnection, getToken, setToken } from './api'
+import { getTempUnit, setTempUnit, getDistUnit, setDistUnit, type TempUnit, type DistUnit } from './units'
 
 function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) => void }) {
   const [token, setTokenValue] = useState(getToken())
@@ -69,8 +70,27 @@ function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) =
   )
 }
 
+const toggleStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  borderRadius: 'var(--radius-default)',
+  overflow: 'hidden',
+  border: '1px solid var(--color-border, #333)',
+}
+
+const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
+  padding: '6px 16px',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'var(--font-body)',
+  fontSize: 14,
+  background: active ? 'var(--color-accent, #007AFF)' : 'var(--color-input-bg, #2a2a2a)',
+  color: active ? 'var(--color-text-highlight, #fff)' : 'var(--color-text-dim, #888)',
+})
+
 function SettingsPanel() {
   const [tokenValid, setTokenValid] = useState(false)
+  const [tempUnit, setTempUnitState] = useState<TempUnit>(getTempUnit())
+  const [distUnit, setDistUnitState] = useState<DistUnit>(getDistUnit())
 
   const handleConnect = () => {
     document.getElementById('connectBtn')?.click()
@@ -89,6 +109,32 @@ function SettingsPanel() {
           Generate the token at <a target="_new" href="https://dash.tessie.com/settings/developer">tessie.com</a>. Stored locally.
         </p>
         <TokenAndStatus onStatusChange={setTokenValid} />
+      </div>
+
+      <h2 className="text-large-title" style={{ margin: `var(--spacing-cross) 0` }}>Units</h2>
+
+      <div style={{
+        background: 'var(--color-surface)',
+        borderRadius: 'var(--radius-default)',
+        padding: 'var(--spacing-card-margin)',
+        display: 'flex',
+        gap: 24,
+        alignItems: 'center',
+      }}>
+        <div>
+          <p className="text-subtitle" style={{ color: 'var(--color-text-dim)', margin: '0 0 6px' }}>Temperature</p>
+          <div style={toggleStyle}>
+            <button style={toggleBtnStyle(tempUnit === 'F')} onClick={() => { setTempUnit('F'); setTempUnitState('F') }}>°F</button>
+            <button style={toggleBtnStyle(tempUnit === 'C')} onClick={() => { setTempUnit('C'); setTempUnitState('C') }}>°C</button>
+          </div>
+        </div>
+        <div>
+          <p className="text-subtitle" style={{ color: 'var(--color-text-dim)', margin: '0 0 6px' }}>Distance</p>
+          <div style={toggleStyle}>
+            <button style={toggleBtnStyle(distUnit === 'mi')} onClick={() => { setDistUnit('mi'); setDistUnitState('mi') }}>mi</button>
+            <button style={toggleBtnStyle(distUnit === 'km')} onClick={() => { setDistUnit('km'); setDistUnitState('km') }}>km</button>
+          </div>
+        </div>
       </div>
 
       <button

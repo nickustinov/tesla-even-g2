@@ -1,4 +1,5 @@
 import type { VehicleState, ActionParams } from './state'
+import { tempPresetValues } from './units'
 
 export type SimpleAction = {
   type: 'command'
@@ -66,11 +67,11 @@ export function resolveCommand(item: ActionItem, v: VehicleState | null): { cmd:
 // --- Temperature presets ---
 
 function temperaturePresets(): ActionItem[] {
-  return [18, 20, 22, 24, 26].map((t) => ({
+  return tempPresetValues().map(({ displayLabel, celsius }) => ({
     type: 'command' as const,
-    label: `${t}\u00B0C`,
+    label: displayLabel,
     cmd: 'set_temperatures',
-    params: { temperature: t },
+    params: { temperature: celsius },
   }))
 }
 

@@ -9,6 +9,7 @@ import {
 } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
 import { getMap } from './api'
+import { displayTemp, displayRange } from './units'
 import {
   DISPLAY_WIDTH,
   DISPLAY_HEIGHT,
@@ -57,7 +58,7 @@ function batteryBar(level: number): string {
 }
 
 function headerText(v: VehicleState): string {
-  const battery = `${v.batteryLevel}% ${batteryBar(v.batteryLevel)} ${v.range}km`
+  const battery = `${v.batteryLevel}% ${batteryBar(v.batteryLevel)} ${displayRange(v.range)}`
   const lock = v.locked ? 'Locked' : 'Unlocked'
   const isCharging = v.chargingState !== 'Disconnected' && v.chargingState !== 'Complete'
   const parts = [battery, lock]
@@ -66,8 +67,8 @@ function headerText(v: VehicleState): string {
 }
 
 function footerStatusText(v: VehicleState): string {
-  const interior = `Interior ${v.insideTemp}\u00B0C`
-  const exterior = `Exterior ${v.outsideTemp}\u00B0C`
+  const interior = `Interior ${displayTemp(v.insideTemp)}`
+  const exterior = `Exterior ${displayTemp(v.outsideTemp)}`
   const climate = `Climate ${v.climateOn ? 'ON' : 'OFF'}`
   const sentry = `Sentry ${v.sentryMode ? 'ON' : 'OFF'}`
   return [interior, exterior, climate, sentry].join(' \u00B7 ')
