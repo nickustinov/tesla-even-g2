@@ -162,7 +162,7 @@ export async function showDashboard(): Promise<void> {
         height: BODY_HEIGHT,
         borderWidth: 1,
         borderColor: 5,
-        borderRdaius: 4,
+        borderRadius: 4,
         paddingLength: 4,
         isEventCapture: 1,
         itemContainer: new ListItemContainerProperty({
@@ -226,7 +226,7 @@ export async function showMenu(): Promise<void> {
         height: DISPLAY_HEIGHT,
         borderWidth: 1,
         borderColor: 5,
-        borderRdaius: 4,
+        borderRadius: 4,
         paddingLength: 4,
         isEventCapture: 1,
         itemContainer: new ListItemContainerProperty({
@@ -280,7 +280,7 @@ export async function showConfirm(label: string): Promise<void> {
         height: DISPLAY_HEIGHT,
         borderWidth: 1,
         borderColor: 5,
-        borderRdaius: 4,
+        borderRadius: 4,
         paddingLength: 4,
         isEventCapture: 1,
         itemContainer: new ListItemContainerProperty({
