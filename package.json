@@ -9,7 +9,7 @@
     "pack": "npm run build && evenhub pack app.json dist -o tesla.ehpk"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.7",
+    "@evenrealities/even_hub_sdk": "^0.0.9",
     "even-toolkit": "^1.0.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

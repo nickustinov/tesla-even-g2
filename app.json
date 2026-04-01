@@ -4,13 +4,17 @@
   "name": "Tesla",
   "version": "1.0.0",
   "min_app_version": "0.1.0",
+  "min_sdk_version": "0.0.9",
+  "supported_languages": ["en"],
   "tagline": "Tesla vehicle controls for Even G2",
   "description": "Monitor and control your Tesla from your Even G2 glasses. View charge status, climate, and send commands via touchpad gestures.",
   "author": "nick",
   "entrypoint": "index.html",
-  "permissions": {
-    "network": [
-      "*"
-    ]
-  }
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "Communicates with the Tessie API for vehicle state and commands, and loads map tiles from CartoDB.",
+      "whitelist": ["https://api.tessie.com", "https://basemaps.cartocdn.com"]
+    }
+  ]
 }
