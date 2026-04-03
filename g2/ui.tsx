@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import teslaLogo from '../src/tesla.png'
 import { createRoot } from 'react-dom/client'
-import { checkConnection, getToken, setToken } from './api'
+import { checkConnection, getToken, setToken, onSettingsLoaded } from './api'
 import { getTempUnit, setTempUnit, getDistUnit, setDistUnit, type TempUnit, type DistUnit } from './units'
 
 function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) => void }) {
@@ -16,7 +16,13 @@ function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) =
     })
   }
 
-  useEffect(() => { check() }, [])
+  useEffect(() => {
+    check()
+    onSettingsLoaded(() => {
+      setTokenValue(getToken())
+      check()
+    })
+  }, [])
 
   const handleBlur = () => {
     setToken(token)

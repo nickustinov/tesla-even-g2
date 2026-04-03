@@ -1,26 +1,40 @@
+import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import type { VehicleState, ActionParams } from './state'
+import { bridge } from './state'
 
-const TOKEN_KEY = 'tesla:tessie-token'
+const TOKEN_KEY = 'tesla:token'
 const VIN_KEY = 'tesla:vin'
 
 const TESSIE_API = 'https://api.tessie.com'
 
-// --- Token ---
+// --- Settings (SDK local storage + memory cache) ---
+
+let cachedToken = ''
+let cachedVin: string | null = null
+const settingsListeners: Array<() => void> = []
+
+export function onSettingsLoaded(cb: () => void): void {
+  settingsListeners.push(cb)
+}
+
+export async function loadSettings(b: EvenAppBridge): Promise<void> {
+  cachedToken = (await b.getLocalStorage(TOKEN_KEY)) ?? ''
+  cachedVin = (await b.getLocalStorage(VIN_KEY)) ?? null
+  for (const cb of settingsListeners) cb()
+}
 
 export function getToken(): string {
-  return localStorage.getItem(TOKEN_KEY) ?? ''
+  return cachedToken
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token)
-  // Clear cached VIN when token changes so we re-discover
-  localStorage.removeItem(VIN_KEY)
+  cachedToken = token
   cachedVin = null
+  if (bridge) {
+    void bridge.setLocalStorage(TOKEN_KEY, token)
+    void bridge.setLocalStorage(VIN_KEY, '')
+  }
 }
-
-// --- VIN discovery (client-side) ---
-
-let cachedVin: string | null = localStorage.getItem(VIN_KEY)
 
 async function tessieGet(path: string): Promise<Response> {
   return fetch(`${TESSIE_API}${path}`, {
@@ -47,7 +61,7 @@ async function getVin(): Promise<string> {
   if (!first) throw new Error('No vehicles found on this Tessie account')
 
   cachedVin = first.vin
-  localStorage.setItem(VIN_KEY, cachedVin)
+  if (bridge) void bridge.setLocalStorage(VIN_KEY, cachedVin)
   return cachedVin
 }
 

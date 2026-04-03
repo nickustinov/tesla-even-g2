@@ -1,23 +1,36 @@
+import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
+import { bridge } from './state'
+
 const TEMP_KEY = 'tesla:temp-unit'
 const DIST_KEY = 'tesla:dist-unit'
 
 export type TempUnit = 'F' | 'C'
 export type DistUnit = 'mi' | 'km'
 
+let cachedTempUnit: TempUnit = 'F'
+let cachedDistUnit: DistUnit = 'mi'
+
+export async function loadUnits(b: EvenAppBridge): Promise<void> {
+  cachedTempUnit = ((await b.getLocalStorage(TEMP_KEY)) as TempUnit) ?? 'F'
+  cachedDistUnit = ((await b.getLocalStorage(DIST_KEY)) as DistUnit) ?? 'mi'
+}
+
 export function getTempUnit(): TempUnit {
-  return (localStorage.getItem(TEMP_KEY) as TempUnit) ?? 'F'
+  return cachedTempUnit
 }
 
 export function setTempUnit(unit: TempUnit): void {
-  localStorage.setItem(TEMP_KEY, unit)
+  cachedTempUnit = unit
+  if (bridge) void bridge.setLocalStorage(TEMP_KEY, unit)
 }
 
 export function getDistUnit(): DistUnit {
-  return (localStorage.getItem(DIST_KEY) as DistUnit) ?? 'mi'
+  return cachedDistUnit
 }
 
 export function setDistUnit(unit: DistUnit): void {
-  localStorage.setItem(DIST_KEY, unit)
+  cachedDistUnit = unit
+  if (bridge) void bridge.setLocalStorage(DIST_KEY, unit)
 }
 
 export function displayTemp(celsius: number): string {

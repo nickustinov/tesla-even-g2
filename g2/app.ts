@@ -1,11 +1,17 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
-import { getState } from './api'
+import { getState, getToken, loadSettings } from './api'
+import { loadUnits } from './units'
 import { state, setBridge } from './state'
 import { showDashboard } from './renderer'
 import { onEvenHubEvent, setRefreshState } from './events'
 
 export async function refreshState(): Promise<void> {
+  if (!getToken()) {
+    appendEventLog('State: no token configured')
+    return
+  }
+
   try {
     state.vehicle = await getState()
     appendEventLog('State: refreshed')
@@ -19,6 +25,8 @@ export async function refreshState(): Promise<void> {
   }
 }
 
+let refreshInterval: ReturnType<typeof setInterval> | null = null
+
 export async function initApp(appBridge: EvenAppBridge): Promise<void> {
   setBridge(appBridge)
   setRefreshState(refreshState)
@@ -27,8 +35,16 @@ export async function initApp(appBridge: EvenAppBridge): Promise<void> {
     onEvenHubEvent(event)
   })
 
-  await refreshState()
-  await showDashboard()
+  await loadSettings(appBridge)
+  await loadUnits(appBridge)
 
-  setInterval(() => { void refreshState() }, 60_000)
+  if (getToken()) {
+    appendEventLog('Tesla: token found, auto-connecting')
+    await refreshState()
+    await showDashboard()
+  }
+
+  if (!refreshInterval) {
+    refreshInterval = setInterval(() => { void refreshState() }, 60_000)
+  }
 }
