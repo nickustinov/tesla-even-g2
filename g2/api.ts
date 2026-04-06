@@ -1,6 +1,6 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import type { VehicleState, ActionParams } from './state'
-import { bridge } from './state'
+import { getBridge } from './state'
 
 const TOKEN_KEY = 'tesla:token'
 const VIN_KEY = 'tesla:vin'
@@ -18,8 +18,18 @@ export function onSettingsLoaded(cb: () => void): void {
 }
 
 export async function loadSettings(b: EvenAppBridge): Promise<void> {
-  cachedToken = (await b.getLocalStorage(TOKEN_KEY)) ?? ''
-  cachedVin = (await b.getLocalStorage(VIN_KEY)) ?? null
+  const rawToken = await b.getLocalStorage(TOKEN_KEY)
+  if (rawToken) {
+    cachedToken = rawToken
+  } else if (cachedToken) {
+    await b.setLocalStorage(TOKEN_KEY, cachedToken)
+  }
+
+  const rawVin = await b.getLocalStorage(VIN_KEY)
+  if (rawVin) {
+    cachedVin = rawVin
+  }
+
   for (const cb of settingsListeners) cb()
 }
 
@@ -30,9 +40,10 @@ export function getToken(): string {
 export function setToken(token: string): void {
   cachedToken = token
   cachedVin = null
-  if (bridge) {
-    void bridge.setLocalStorage(TOKEN_KEY, token)
-    void bridge.setLocalStorage(VIN_KEY, '')
+  const b = getBridge()
+  if (b) {
+    void b.setLocalStorage(TOKEN_KEY, token)
+    void b.setLocalStorage(VIN_KEY, '')
   }
 }
 
@@ -61,7 +72,8 @@ async function getVin(): Promise<string> {
   if (!first) throw new Error('No vehicles found on this Tessie account')
 
   cachedVin = first.vin
-  if (bridge) void bridge.setLocalStorage(VIN_KEY, cachedVin)
+  const b = getBridge()
+  if (b) void b.setLocalStorage(VIN_KEY, cachedVin)
   return cachedVin
 }
 

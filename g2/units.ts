@@ -1,5 +1,5 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
-import { bridge } from './state'
+import { getBridge } from './state'
 
 const TEMP_KEY = 'tesla:temp-unit'
 const DIST_KEY = 'tesla:dist-unit'
@@ -21,7 +21,8 @@ export function getTempUnit(): TempUnit {
 
 export function setTempUnit(unit: TempUnit): void {
   cachedTempUnit = unit
-  if (bridge) void bridge.setLocalStorage(TEMP_KEY, unit)
+  const b = getBridge()
+  if (b) void b.setLocalStorage(TEMP_KEY, unit)
 }
 
 export function getDistUnit(): DistUnit {
@@ -30,7 +31,8 @@ export function getDistUnit(): DistUnit {
 
 export function setDistUnit(unit: DistUnit): void {
   cachedDistUnit = unit
-  if (bridge) void bridge.setLocalStorage(DIST_KEY, unit)
+  const b = getBridge()
+  if (b) void b.setLocalStorage(DIST_KEY, unit)
 }
 
 export function displayTemp(celsius: number): string {

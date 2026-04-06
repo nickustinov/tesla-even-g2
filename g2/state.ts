@@ -47,8 +47,12 @@ export const state: State = {
   pendingAction: null,
 }
 
-export let bridge: EvenAppBridge | null = null
+let _bridge: EvenAppBridge | null = null
+
+export function getBridge(): EvenAppBridge | null {
+  return _bridge
+}
 
 export function setBridge(b: EvenAppBridge): void {
-  bridge = b
+  _bridge = b
 }

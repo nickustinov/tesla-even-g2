@@ -23,7 +23,7 @@ import {
   TEXT_WIDTH,
 } from './layout'
 import { resetSelectedIndex } from './events'
-import { state, bridge } from './state'
+import { state, getBridge } from './state'
 import type { VehicleState } from './state'
 import { quickActions, resolveLabel, categories } from './actions'
 import type { MenuLevel } from './navigation'
@@ -37,17 +37,18 @@ async function rebuildPage(config: {
   listObject?: ListContainerProperty[]
   imageObject?: ImageContainerProperty[]
 }): Promise<void> {
-  if (!bridge) return
+  const b = getBridge()
+  if (!b) return
 
   if (!state.startupRendered) {
     resetSelectedIndex()
-    await bridge.createStartUpPageContainer(new CreateStartUpPageContainer(config))
+    await b.createStartUpPageContainer(new CreateStartUpPageContainer(config))
     state.startupRendered = true
     return
   }
 
   resetSelectedIndex()
-  await bridge.rebuildPageContainer(new RebuildPageContainer(config))
+  await b.rebuildPageContainer(new RebuildPageContainer(config))
 }
 
 // --- Text helpers ---
@@ -77,7 +78,8 @@ function footerStatusText(v: VehicleState): string {
 // --- Map ---
 
 async function pushMapImage(): Promise<void> {
-  if (!bridge) return
+  const b = getBridge()
+  if (!b) return
 
   const mapData = await getMap()
   if (!mapData) {
@@ -86,7 +88,7 @@ async function pushMapImage(): Promise<void> {
   }
 
   const pngBytes = Array.from(new Uint8Array(mapData))
-  const result = await bridge.updateImageRawData(new ImageRawDataUpdate({
+  const result = await b.updateImageRawData(new ImageRawDataUpdate({
     containerID: 4,
     containerName: 'map',
     imageData: pngBytes,
