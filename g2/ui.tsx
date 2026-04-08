@@ -192,7 +192,7 @@ export function initUI(): void {
   const logo = document.getElementById('logo')
   const subtitle = document.getElementById('subtitle')
   const status = document.getElementById('status')
-  const eventLog = document.getElementById('event-log')
+  const logPanel = document.getElementById('log-panel')
 
   const container = document.createElement('div')
 
@@ -207,9 +207,8 @@ export function initUI(): void {
     status.style.display = 'none'
     app.appendChild(status)
   }
-  if (eventLog) {
-    eventLog.style.display = 'none'
-    app.appendChild(eventLog)
+  if (logPanel) {
+    app.appendChild(logPanel)
   }
 
   createRoot(container).render(

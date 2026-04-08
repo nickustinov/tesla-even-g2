@@ -65,11 +65,11 @@ async function getVin(): Promise<string> {
       return cachedVin
   }
 
-  const res = await tessieGet('/vehicles')
+  const res = await tessieGet('/vehicles?only_active=true')
   if (!res.ok) throw new Error(`Failed to list vehicles: ${res.status}`)
-  const data = await res.json() as { results: Array<{ vin: string }> }
-  const first = data.results?.[0]
-  if (!first) throw new Error('No vehicles found on this Tessie account')
+  const data = await res.json() as { results: Array<{ vin: string; is_active?: boolean }> }
+  const first = data.results?.find(v => v.is_active !== false) ?? data.results?.[0]
+  if (!first) throw new Error('No active vehicles found on this Tessie account')
 
   cachedVin = first.vin
   const b = getBridge()
