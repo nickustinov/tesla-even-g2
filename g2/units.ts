@@ -9,30 +9,49 @@ export type DistUnit = 'mi' | 'km'
 
 let cachedTempUnit: TempUnit = 'F'
 let cachedDistUnit: DistUnit = 'mi'
+const unitListeners: Array<() => void> = []
+
+export function onUnitsLoaded(cb: () => void): void {
+  unitListeners.push(cb)
+}
 
 export async function loadUnits(b: EvenAppBridge): Promise<void> {
-  cachedTempUnit = ((await b.getLocalStorage(TEMP_KEY)) as TempUnit) ?? 'F'
-  cachedDistUnit = ((await b.getLocalStorage(DIST_KEY)) as DistUnit) ?? 'mi'
+  const rawTemp = await b.getLocalStorage(TEMP_KEY)
+  if (rawTemp === 'F' || rawTemp === 'C') {
+    cachedTempUnit = rawTemp
+  } else if (cachedTempUnit !== 'F') {
+    // UI set a unit before bridge connected – sync to SDK
+    await b.setLocalStorage(TEMP_KEY, cachedTempUnit)
+  }
+
+  const rawDist = await b.getLocalStorage(DIST_KEY)
+  if (rawDist === 'mi' || rawDist === 'km') {
+    cachedDistUnit = rawDist
+  } else if (cachedDistUnit !== 'mi') {
+    await b.setLocalStorage(DIST_KEY, cachedDistUnit)
+  }
+
+  for (const cb of unitListeners) cb()
 }
 
 export function getTempUnit(): TempUnit {
   return cachedTempUnit
 }
 
-export function setTempUnit(unit: TempUnit): void {
+export async function setTempUnit(unit: TempUnit): Promise<void> {
   cachedTempUnit = unit
   const b = getBridge()
-  if (b) void b.setLocalStorage(TEMP_KEY, unit)
+  if (b) await b.setLocalStorage(TEMP_KEY, unit)
 }
 
 export function getDistUnit(): DistUnit {
   return cachedDistUnit
 }
 
-export function setDistUnit(unit: DistUnit): void {
+export async function setDistUnit(unit: DistUnit): Promise<void> {
   cachedDistUnit = unit
   const b = getBridge()
-  if (b) void b.setLocalStorage(DIST_KEY, unit)
+  if (b) await b.setLocalStorage(DIST_KEY, unit)
 }
 
 export function displayTemp(celsius: number): string {

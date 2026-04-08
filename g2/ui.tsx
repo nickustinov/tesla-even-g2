@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import teslaLogo from '../src/tesla.png'
 import { createRoot } from 'react-dom/client'
 import { checkConnection, getToken, setToken, onSettingsLoaded } from './api'
-import { getTempUnit, setTempUnit, getDistUnit, setDistUnit, type TempUnit, type DistUnit } from './units'
+import { getTempUnit, setTempUnit, getDistUnit, setDistUnit, onUnitsLoaded, type TempUnit, type DistUnit } from './units'
 
 function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) => void }) {
   const [token, setTokenValue] = useState(getToken())
@@ -97,6 +97,13 @@ function SettingsPanel() {
   const [tokenValid, setTokenValid] = useState(false)
   const [tempUnit, setTempUnitState] = useState<TempUnit>(getTempUnit())
   const [distUnit, setDistUnitState] = useState<DistUnit>(getDistUnit())
+
+  useEffect(() => {
+    onUnitsLoaded(() => {
+      setTempUnitState(getTempUnit())
+      setDistUnitState(getDistUnit())
+    })
+  }, [])
 
   const handleConnect = () => {
     document.getElementById('connectBtn')?.click()
