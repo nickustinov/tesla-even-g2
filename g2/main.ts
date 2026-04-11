@@ -24,6 +24,7 @@ export function createTeslaActions(setStatus: SetStatus): AppActions {
   return {
     async connect() {
       setStatus('Tesla: connecting to Even bridge...')
+      appendEventLog(`Tesla plugin v${__APP_VERSION__}`)
       appendEventLog('Tesla: connect requested')
 
       try {

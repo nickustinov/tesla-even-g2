@@ -17,7 +17,8 @@ export async function refreshState(): Promise<void> {
     appendEventLog('State: refreshed')
   } catch (err) {
     console.error('[tesla] refreshState failed', err)
-    appendEventLog(`State: refresh failed: ${err instanceof Error ? err.message : String(err)}`)
+    const msg = err instanceof Error ? err.message : String(err)
+    appendEventLog(`State: refresh failed: ${msg}`)
   }
 
   if (state.screen === 'dashboard' || state.screen === 'confirmation') {

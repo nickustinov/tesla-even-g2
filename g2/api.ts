@@ -47,24 +47,26 @@ export function setToken(token: string): void {
   }
 }
 
+// Use query-param auth instead of a Bearer header. WebViews trigger a CORS
+// preflight for custom headers, which Tessie handles inconsistently per
+// endpoint; a plain GET with ?access_token= is a CORS "simple request" and
+// avoids the preflight entirely. Tessie documents both methods as supported.
+function tessieUrl(path: string): string {
+  const sep = path.includes('?') ? '&' : '?'
+  return `${TESSIE_API}${path}${sep}access_token=${encodeURIComponent(getToken())}`
+}
+
 async function tessieGet(path: string): Promise<Response> {
-  return fetch(`${TESSIE_API}${path}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  })
+  return fetch(tessieUrl(path))
 }
 
-async function tessiePost(path: string): Promise<Response> {
-  return fetch(`${TESSIE_API}${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}` },
-  })
+function clearVinCache(): void {
+  cachedVin = null
+  const b = getBridge()
+  if (b) void b.setLocalStorage(VIN_KEY, '')
 }
 
-async function getVin(): Promise<string> {
-  if (cachedVin) {
-      return cachedVin
-  }
-
+async function fetchVin(): Promise<string> {
   const res = await tessieGet('/vehicles?only_active=true')
   if (!res.ok) throw new Error(`Failed to list vehicles: ${res.status}`)
   const data = await res.json() as { results: Array<{ vin: string; is_active?: boolean }> }
@@ -77,11 +79,25 @@ async function getVin(): Promise<string> {
   return cachedVin
 }
 
+async function getVin(): Promise<string> {
+  if (cachedVin) return cachedVin
+  return fetchVin()
+}
+
 // --- State ---
 
 export async function getState(): Promise<VehicleState> {
-  const vin = await getVin()
-  const res = await tessieGet(`/${vin}/state`)
+  let vin = await getVin()
+  let res = await tessieGet(`/${vin}/state`)
+
+  // Cached VIN may be stale (e.g. archived vehicle from a prior version).
+  // On 403/404, invalidate cache, re-list, and retry once.
+  if ((res.status === 403 || res.status === 404) && cachedVin) {
+    clearVinCache()
+    vin = await fetchVin()
+    res = await tessieGet(`/${vin}/state`)
+  }
+
   if (!res.ok) throw new Error(`State fetch failed: ${res.status}`)
   const data = await res.json()
 
@@ -124,14 +140,11 @@ export async function sendCommand(cmd: string, params?: ActionParams): Promise<{
         qs.set(k, String(v))
       }
     }
+    qs.set('access_token', getToken())
 
-    const qsStr = qs.toString()
-    const url = `${TESSIE_API}${path}${qsStr ? '?' + qsStr : ''}`
+    const url = `${TESSIE_API}${path}?${qs.toString()}`
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
+    const res = await fetch(url, { method: 'POST' })
     const data = await res.json()
     if (!res.ok) return { ok: false, error: data.error ?? `HTTP ${res.status}` }
     return { ok: true }

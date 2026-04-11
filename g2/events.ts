@@ -4,7 +4,7 @@ import { sendCommand } from './api'
 import { quickActions, resolveLabel, resolveCommand, categories } from './actions'
 import type { ActionItem } from './actions'
 import * as navigation from './navigation'
-import { state } from './state'
+import { getBridge, state } from './state'
 import type { ActionParams } from './state'
 import { showDashboard, showMenu, showLoading, showConfirmation, showConfirm } from './renderer'
 
@@ -138,7 +138,18 @@ export async function handleDashboardEvent(event: EvenHubEvent, eventType: OsEve
   }
 
   if (eventType === OsEventTypeList.DOUBLE_CLICK_EVENT) {
-    await refreshStateFn()
+    // Even Hub submission requirement: double-tap on the root page
+    // must invoke the host exit dialogue. Refresh is still available
+    // as the first quick action on the dashboard.
+    const bridge = getBridge()
+    if (bridge) {
+      appendEventLog('Dashboard double-tap: shutDownPageContainer(1)')
+      try {
+        await bridge.shutDownPageContainer(1)
+      } catch (err) {
+        appendEventLog(`shutDownPageContainer failed: ${(err as Error).message}`)
+      }
+    }
     return
   }
 }

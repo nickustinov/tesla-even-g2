@@ -3,6 +3,7 @@
 function redact(text: string): string {
   return text
     .replace(/Bearer\s+[A-Za-z0-9._\-]+/gi, 'Bearer [redacted]')
+    .replace(/access_token=[^&\s]+/gi, 'access_token=[redacted]')
     .replace(/[A-Za-z0-9_\-]{32,}/g, '[redacted]')
 }
 
