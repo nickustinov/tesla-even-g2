@@ -7,6 +7,7 @@ export const BODY_TOP = HEADER_HEIGHT + 4
 export const BODY_HEIGHT = DISPLAY_HEIGHT - HEADER_HEIGHT - FOOTER_HEIGHT - 8
 
 export const MAP_WIDTH = 200
-export const MAP_HEIGHT = 100
-export const MAP_TOP = BODY_TOP + Math.round((BODY_HEIGHT - 100) / 2)
+export const MAP_TILE_HEIGHT = 100
+export const MAP_HEIGHT = MAP_TILE_HEIGHT * 2
+export const MAP_TOP = BODY_TOP + Math.round((BODY_HEIGHT - MAP_HEIGHT) / 2)
 export const TEXT_WIDTH = DISPLAY_WIDTH - MAP_WIDTH - 8

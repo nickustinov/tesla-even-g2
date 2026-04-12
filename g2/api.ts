@@ -158,7 +158,8 @@ export async function sendCommand(cmd: string, params?: ActionParams): Promise<{
 const TILE_SIZE = 256
 const MAP_ZOOM = 15
 const MAP_WIDTH = 200
-const MAP_HEIGHT = 100
+const MAP_TILE_HEIGHT = 100
+const MAP_HEIGHT = MAP_TILE_HEIGHT * 2
 
 function latLngToTileXY(lat: number, lng: number, zoom: number) {
   const n = 2 ** zoom
@@ -177,7 +178,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   })
 }
 
-export async function getMap(): Promise<ArrayBuffer | null> {
+export async function getMap(): Promise<{ top: ArrayBuffer; bottom: ArrayBuffer } | null> {
   try {
     const vin = await getVin()
     const stateRes = await tessieGet(`/${vin}/state`)
@@ -240,9 +241,24 @@ export async function getMap(): Promise<ArrayBuffer | null> {
     ctx.fillStyle = 'white'
     ctx.fill()
 
-    // Export as PNG ArrayBuffer
-    const blob = await new Promise<Blob>((resolve) => canvas.toBlob(resolve!, 'image/png'))
-    return await blob.arrayBuffer()
+    // Split into two halves for separate image containers
+    const topCanvas = document.createElement('canvas')
+    topCanvas.width = MAP_WIDTH
+    topCanvas.height = MAP_TILE_HEIGHT
+    topCanvas.getContext('2d')!.drawImage(canvas, 0, 0, MAP_WIDTH, MAP_TILE_HEIGHT, 0, 0, MAP_WIDTH, MAP_TILE_HEIGHT)
+
+    const bottomCanvas = document.createElement('canvas')
+    bottomCanvas.width = MAP_WIDTH
+    bottomCanvas.height = MAP_TILE_HEIGHT
+    bottomCanvas.getContext('2d')!.drawImage(canvas, 0, MAP_TILE_HEIGHT, MAP_WIDTH, MAP_TILE_HEIGHT, 0, 0, MAP_WIDTH, MAP_TILE_HEIGHT)
+
+    const topBlob = await new Promise<Blob>((resolve) => topCanvas.toBlob(resolve!, 'image/png'))
+    const bottomBlob = await new Promise<Blob>((resolve) => bottomCanvas.toBlob(resolve!, 'image/png'))
+
+    return {
+      top: await topBlob.arrayBuffer(),
+      bottom: await bottomBlob.arrayBuffer(),
+    }
   } catch {
     return null
   }

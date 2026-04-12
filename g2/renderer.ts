@@ -18,7 +18,7 @@ import {
   BODY_TOP,
   BODY_HEIGHT,
   MAP_WIDTH,
-  MAP_HEIGHT,
+  MAP_TILE_HEIGHT,
   MAP_TOP,
   TEXT_WIDTH,
 } from './layout'
@@ -81,20 +81,27 @@ async function pushMapImage(): Promise<void> {
   const b = getBridge()
   if (!b) return
 
-  const mapData = await getMap()
-  if (!mapData) {
+  const halves = await getMap()
+  if (!halves) {
     appendEventLog('Map: no data')
     return
   }
 
-  const pngBytes = Array.from(new Uint8Array(mapData))
-  const result = await b.updateImageRawData(new ImageRawDataUpdate({
+  const topBytes = Array.from(new Uint8Array(halves.top))
+  const topResult = await b.updateImageRawData(new ImageRawDataUpdate({
     containerID: 4,
-    containerName: 'map',
-    imageData: pngBytes,
+    containerName: 'map-top',
+    imageData: topBytes,
   }))
 
-  appendEventLog(`Map: ${String(result)}`)
+  const bottomBytes = Array.from(new Uint8Array(halves.bottom))
+  const bottomResult = await b.updateImageRawData(new ImageRawDataUpdate({
+    containerID: 5,
+    containerName: 'map-bottom',
+    imageData: bottomBytes,
+  }))
+
+  appendEventLog(`Map: top=${String(topResult)} bottom=${String(bottomResult)}`)
 }
 
 // --- Dashboard screen ---
@@ -129,7 +136,7 @@ export async function showDashboard(): Promise<void> {
   labels.push('More \u203A')
 
   await rebuildPage({
-    containerTotalNum: 4,
+    containerTotalNum: 5,
     textObject: [
       new TextContainerProperty({
         containerID: 1,
@@ -178,11 +185,19 @@ export async function showDashboard(): Promise<void> {
     imageObject: [
       new ImageContainerProperty({
         containerID: 4,
-        containerName: 'map',
+        containerName: 'map-top',
         xPosition: TEXT_WIDTH + 8,
         yPosition: MAP_TOP,
         width: MAP_WIDTH,
-        height: MAP_HEIGHT,
+        height: MAP_TILE_HEIGHT,
+      }),
+      new ImageContainerProperty({
+        containerID: 5,
+        containerName: 'map-bottom',
+        xPosition: TEXT_WIDTH + 8,
+        yPosition: MAP_TOP + MAP_TILE_HEIGHT,
+        width: MAP_WIDTH,
+        height: MAP_TILE_HEIGHT,
       }),
     ],
   })
