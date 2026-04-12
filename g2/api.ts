@@ -158,7 +158,7 @@ export async function sendCommand(cmd: string, params?: ActionParams): Promise<{
 const TILE_SIZE = 256
 const MAP_ZOOM = 15
 const MAP_WIDTH = 200
-const MAP_TILE_HEIGHT = 100
+const MAP_TILE_HEIGHT = 108
 const MAP_HEIGHT = MAP_TILE_HEIGHT * 2
 
 function latLngToTileXY(lat: number, lng: number, zoom: number) {
