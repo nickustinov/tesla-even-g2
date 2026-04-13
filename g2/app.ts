@@ -3,7 +3,7 @@ import { appendEventLog } from '../_shared/log'
 import { getState, getToken, loadSettings } from './api'
 import { loadUnits } from './units'
 import { state, setBridge } from './state'
-import { showDashboard } from './renderer'
+import { showDashboard, showSetupMessage } from './renderer'
 import { onEvenHubEvent, setRefreshState } from './events'
 
 export async function refreshState(): Promise<void> {
@@ -43,6 +43,9 @@ export async function initApp(appBridge: EvenAppBridge): Promise<void> {
     appendEventLog('Tesla: token found, auto-connecting')
     await refreshState()
     await showDashboard()
+  } else {
+    appendEventLog('Tesla: no token configured, showing setup message')
+    await showSetupMessage()
   }
 
   if (!refreshInterval) {

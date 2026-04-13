@@ -257,6 +257,29 @@ export async function showMenu(): Promise<void> {
   })
 }
 
+// --- Setup message (no token) ---
+
+export async function showSetupMessage(): Promise<void> {
+  state.screen = 'loading'
+
+  await rebuildPage({
+    containerTotalNum: 1,
+    textObject: [
+      new TextContainerProperty({
+        containerID: 1,
+        containerName: 'setup',
+        content: 'No Tesla token configured.\n\nOpen this app in your phone browser and enter your Tessie API token in Settings.',
+        xPosition: 0,
+        yPosition: 0,
+        width: DISPLAY_WIDTH,
+        height: DISPLAY_HEIGHT,
+        isEventCapture: 1,
+        paddingLength: 6,
+      }),
+    ],
+  })
+}
+
 // --- Loading screen ---
 
 export async function showLoading(label: string): Promise<void> {
