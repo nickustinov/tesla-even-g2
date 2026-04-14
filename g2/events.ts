@@ -251,5 +251,14 @@ export function onEvenHubEvent(event: EvenHubEvent): void {
     case 'confirmation':
       void handleConfirmationEvent()
       break
+    case 'loading':
+      if (eventType === OsEventTypeList.DOUBLE_CLICK_EVENT) {
+        const bridge = getBridge()
+        if (bridge) {
+          appendEventLog('Loading double-tap: shutDownPageContainer(1)')
+          void bridge.shutDownPageContainer(1)
+        }
+      }
+      break
   }
 }
