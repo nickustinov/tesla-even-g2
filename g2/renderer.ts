@@ -251,9 +251,9 @@ export async function showMenu(): Promise<void> {
         yPosition: 0,
         width: DISPLAY_WIDTH,
         height: DISPLAY_HEIGHT,
-        borderWidth: 1,
-        borderColor: 5,
-        borderRadius: 4,
+        borderWidth: 0,
+        borderColor: 0,
+        borderRadius: 0,
         paddingLength: 4,
         isEventCapture: 1,
         itemContainer: new ListItemContainerProperty({
