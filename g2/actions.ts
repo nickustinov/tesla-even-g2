@@ -1,5 +1,6 @@
 import type { VehicleState, ActionParams } from './state'
 import { tempPresetValues } from './units'
+import { getQuickActionIds } from './prefs'
 
 export type SimpleAction = {
   type: 'command'
@@ -132,7 +133,10 @@ function seatCoolingPresets(): ActionItem[] {
 
 // --- Categories ---
 
-export const categories: Category[] = [
+// Built fresh on each call so unit-dependent presets (temperature, etc.)
+// reflect the current temp/dist unit even after the user changes them.
+export function categories(): Category[] {
+  return [
   {
     label: 'Quick actions',
     items: [
@@ -197,10 +201,58 @@ export const categories: Category[] = [
       { type: 'command', label: 'Wake', cmd: 'wake' },
     ],
   },
-]
+  ]
+}
+
+// --- Stable identifiers for top-level items ---
+
+export function getActionId(item: ActionItem): string {
+  switch (item.type) {
+    case 'command':
+      return item.params
+        ? `cmd:${item.cmd}:${JSON.stringify(item.params)}`
+        : `cmd:${item.cmd}`
+    case 'toggle':
+      return `toggle:${item.onCmd}|${item.offCmd}`
+    case 'submenu':
+      return `submenu:${item.label}`
+    case 'refresh':
+      return 'refresh'
+  }
+}
+
+// Flat deduped catalog of every top-level item across all categories.
+// Children of submenus are intentionally excluded — only top-level items
+// can be promoted to quick actions.
+export function actionCatalog(): ActionItem[] {
+  const seen = new Set<string>()
+  const out: ActionItem[] = []
+  for (const cat of categories()) {
+    for (const item of cat.items) {
+      const id = getActionId(item)
+      if (seen.has(id)) continue
+      seen.add(id)
+      out.push(item)
+    }
+  }
+  return out
+}
+
+export function defaultQuickActionIds(): string[] {
+  return categories()[0].items.map(getActionId)
+}
 
 // --- Quick actions for dashboard ---
 
 export function quickActions(): ActionItem[] {
-  return categories[0].items
+  const ids = getQuickActionIds()
+  if (!ids) return categories()[0].items
+
+  const byId = new Map(actionCatalog().map((item) => [getActionId(item), item]))
+  const out: ActionItem[] = []
+  for (const id of ids) {
+    const item = byId.get(id)
+    if (item) out.push(item)
+  }
+  return out
 }

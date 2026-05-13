@@ -22,10 +22,9 @@ import {
   MAP_TOP,
   TEXT_WIDTH,
 } from './layout'
-import { resetSelectedIndex } from './events'
 import { state, getBridge } from './state'
 import type { VehicleState } from './state'
-import { quickActions, resolveLabel, categories } from './actions'
+import { quickActions, resolveLabel } from './actions'
 import type { MenuLevel } from './navigation'
 import * as navigation from './navigation'
 
@@ -41,13 +40,11 @@ async function rebuildPage(config: {
   if (!b) return
 
   if (!state.startupRendered) {
-    resetSelectedIndex()
     await b.createStartUpPageContainer(new CreateStartUpPageContainer(config))
     state.startupRendered = true
     return
   }
 
-  resetSelectedIndex()
   await b.rebuildPageContainer(new RebuildPageContainer(config))
 }
 
@@ -77,7 +74,12 @@ function footerStatusText(v: VehicleState): string {
 
 // --- Map ---
 
-async function pushMapImage(): Promise<void> {
+// Bumped on every dashboard rebuild so stale map fetches bail out instead
+// of writing to containers that no longer exist (e.g. after navigating into
+// a submenu while tiles were still loading).
+let dashboardGen = 0
+
+async function pushMapImage(gen: number): Promise<void> {
   const b = getBridge()
   if (!b) return
 
@@ -87,12 +89,19 @@ async function pushMapImage(): Promise<void> {
     return
   }
 
+  if (gen !== dashboardGen || state.screen !== 'dashboard') {
+    appendEventLog('Map: dashboard stale, dropping update')
+    return
+  }
+
   const topBytes = Array.from(new Uint8Array(halves.top))
   const topResult = await b.updateImageRawData(new ImageRawDataUpdate({
     containerID: 4,
     containerName: 'map-top',
     imageData: topBytes,
   }))
+
+  if (gen !== dashboardGen || state.screen !== 'dashboard') return
 
   const bottomBytes = Array.from(new Uint8Array(halves.bottom))
   const bottomResult = await b.updateImageRawData(new ImageRawDataUpdate({
@@ -147,7 +156,7 @@ export async function showDashboard(): Promise<void> {
         width: DISPLAY_WIDTH,
         height: HEADER_HEIGHT,
         isEventCapture: 0,
-        paddingLength: 4,
+        paddingLength: 1,
       }),
       new TextContainerProperty({
         containerID: 3,
@@ -158,7 +167,7 @@ export async function showDashboard(): Promise<void> {
         width: DISPLAY_WIDTH,
         height: FOOTER_HEIGHT,
         isEventCapture: 0,
-        paddingLength: 4,
+        paddingLength: 1,
       }),
     ],
     listObject: [
@@ -204,7 +213,8 @@ export async function showDashboard(): Promise<void> {
 
   appendEventLog(`Dashboard: ${v.batteryLevel}% ${v.range}km`)
 
-  void pushMapImage()
+  dashboardGen++
+  void pushMapImage(dashboardGen)
 }
 
 // --- Menu screen (full width, no map) ---

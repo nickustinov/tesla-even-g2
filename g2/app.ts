@@ -1,7 +1,8 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { appendEventLog } from '../_shared/log'
 import { getState, getToken, loadSettings } from './api'
-import { loadUnits } from './units'
+import { loadUnits, onUnitsChanged } from './units'
+import { loadQuickActionPrefs, onQuickActionsChanged } from './prefs'
 import { state, setBridge } from './state'
 import { showDashboard, showSetupMessage } from './renderer'
 import { onEvenHubEvent, setRefreshState } from './events'
@@ -38,6 +39,15 @@ export async function initApp(appBridge: EvenAppBridge): Promise<void> {
 
   await loadSettings(appBridge)
   await loadUnits(appBridge)
+  await loadQuickActionPrefs(appBridge)
+
+  const refreshIfOnDashboard = () => {
+    if (state.screen === 'dashboard') {
+      void showDashboard()
+    }
+  }
+  onQuickActionsChanged(refreshIfOnDashboard)
+  onUnitsChanged(refreshIfOnDashboard)
 
   if (getToken()) {
     appendEventLog('Tesla: token found, auto-connecting')

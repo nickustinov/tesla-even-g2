@@ -10,9 +10,14 @@ export type DistUnit = 'mi' | 'km'
 let cachedTempUnit: TempUnit = 'F'
 let cachedDistUnit: DistUnit = 'mi'
 const unitListeners: Array<() => void> = []
+const unitChangeListeners: Array<() => void> = []
 
 export function onUnitsLoaded(cb: () => void): void {
   unitListeners.push(cb)
+}
+
+export function onUnitsChanged(cb: () => void): void {
+  unitChangeListeners.push(cb)
 }
 
 export async function loadUnits(b: EvenAppBridge): Promise<void> {
@@ -39,9 +44,11 @@ export function getTempUnit(): TempUnit {
 }
 
 export async function setTempUnit(unit: TempUnit): Promise<void> {
+  if (cachedTempUnit === unit) return
   cachedTempUnit = unit
   const b = getBridge()
   if (b) await b.setLocalStorage(TEMP_KEY, unit)
+  for (const cb of unitChangeListeners) cb()
 }
 
 export function getDistUnit(): DistUnit {
@@ -49,9 +56,11 @@ export function getDistUnit(): DistUnit {
 }
 
 export async function setDistUnit(unit: DistUnit): Promise<void> {
+  if (cachedDistUnit === unit) return
   cachedDistUnit = unit
   const b = getBridge()
   if (b) await b.setLocalStorage(DIST_KEY, unit)
+  for (const cb of unitChangeListeners) cb()
 }
 
 export function displayTemp(celsius: number): string {

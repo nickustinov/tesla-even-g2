@@ -15,22 +15,13 @@ export function setRefreshState(fn: () => Promise<void>): void {
   refreshStateFn = fn
 }
 
-// Track selected list index – hardware omits currentSelectItemIndex for index 0
-let selectedIndex = 0
-
-export function resetSelectedIndex(): void {
-  selectedIndex = 0
-}
-
-function resolveIndex(event: EvenHubEvent): number {
-  const le = event.listEvent
-  const idx = le?.currentSelectItemIndex
-  if (typeof idx === 'number' && idx >= 0) {
-    selectedIndex = idx
-    return idx
-  }
-  // Hardware omits index for item 0 – use tracked state
-  return selectedIndex
+// Protobuf omits zero-value fields, so currentSelectItemIndex arrives as
+// undefined when the cursor is at item 0. Default to 0 in that case
+// instead of guessing from prior state.
+function readListIndex(event: EvenHubEvent): number {
+  const idx = event.listEvent?.currentSelectItemIndex
+  if (typeof idx !== 'number' || idx < 0) return 0
+  return idx
 }
 
 // --- Event normalisation ---
@@ -121,12 +112,12 @@ async function handleAction(item: ActionItem): Promise<void> {
 
 export async function handleDashboardEvent(event: EvenHubEvent, eventType: OsEventTypeList | undefined): Promise<void> {
   if (eventType === OsEventTypeList.CLICK_EVENT) {
-    const idx = resolveIndex(event)
+    const idx = readListIndex(event)
 
     const actions = quickActions()
     // Last item is "More >"
     if (idx === actions.length) {
-      navigation.push({ kind: 'categories', items: categories.slice(1) })
+      navigation.push({ kind: 'categories', items: categories().slice(1) })
       await showMenu()
       return
     }
@@ -164,7 +155,7 @@ export async function handleMenuEvent(event: EvenHubEvent, eventType: OsEventTyp
 
   if (eventType !== OsEventTypeList.CLICK_EVENT) return
 
-  const idx = resolveIndex(event)
+  const idx = readListIndex(event)
 
   // Index 0 is always "< Back"
   if (idx === 0) {
@@ -209,7 +200,7 @@ async function goBack(): Promise<void> {
 export async function handleConfirmEvent(event: EvenHubEvent, eventType: OsEventTypeList | undefined): Promise<void> {
   if (eventType !== OsEventTypeList.CLICK_EVENT) return
 
-  const idx = resolveIndex(event)
+  const idx = readListIndex(event)
 
   const pending = state.pendingAction
   state.pendingAction = null
@@ -234,22 +225,31 @@ export async function handleConfirmationEvent(): Promise<void> {
 
 // --- Top-level dispatcher ---
 
+// Drop incoming events while a handler is still in flight. Prevents the SDK
+// from re-entering navigation while we're mid-rebuild (which otherwise made
+// Back appear to do nothing because a stale press was processed against
+// freshly-rebuilt-but-still-loading state).
+let processing = false
+
 export function onEvenHubEvent(event: EvenHubEvent): void {
+  if (processing) return
+
   const eventType = resolveEventType(event)
   appendEventLog(`Event: type=${String(eventType)} screen=${state.screen}`)
 
+  let handler: Promise<void> | undefined
   switch (state.screen) {
     case 'dashboard':
-      void handleDashboardEvent(event, eventType)
+      handler = handleDashboardEvent(event, eventType)
       break
     case 'menu':
-      void handleMenuEvent(event, eventType)
+      handler = handleMenuEvent(event, eventType)
       break
     case 'confirm':
-      void handleConfirmEvent(event, eventType)
+      handler = handleConfirmEvent(event, eventType)
       break
     case 'confirmation':
-      void handleConfirmationEvent()
+      handler = handleConfirmationEvent()
       break
     case 'loading':
       if (eventType === OsEventTypeList.DOUBLE_CLICK_EVENT) {
@@ -260,5 +260,10 @@ export function onEvenHubEvent(event: EvenHubEvent): void {
         }
       }
       break
+  }
+
+  if (handler) {
+    processing = true
+    void handler.finally(() => { processing = false })
   }
 }

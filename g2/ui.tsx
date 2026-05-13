@@ -1,32 +1,57 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import teslaLogo from '../src/tesla.png'
 import { createRoot } from 'react-dom/client'
 import { checkConnection, getToken, setToken, onSettingsLoaded } from './api'
 import { getTempUnit, setTempUnit, getDistUnit, setDistUnit, onUnitsLoaded, type TempUnit, type DistUnit } from './units'
+import { actionCatalog, defaultQuickActionIds, getActionId, resolveLabel, type ActionItem } from './actions'
+import { getQuickActionIds, setQuickActionIds, onQuickActionsLoaded } from './prefs'
 
-function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) => void }) {
+function TokenAndStatus() {
   const [token, setTokenValue] = useState(getToken())
   const [status, setStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const check = () => {
+  // Save the value and probe the connection. Does NOT auto-trigger a
+  // glasses reconnect — the page-load auto-connect in src/main.ts owns
+  // that for restored tokens.
+  const probe = async (value: string): Promise<boolean> => {
+    setToken(value)
     setStatus('checking')
-    checkConnection().then((ok) => {
-      setStatus(ok ? 'connected' : 'disconnected')
-      onStatusChange(ok)
-    })
+    const ok = await checkConnection()
+    setStatus(ok ? 'connected' : 'disconnected')
+    return ok
+  }
+
+  // For user-driven edits (typing/pasting): probe, then if valid, kick
+  // off the connect flow so the glasses pick up the new token without
+  // a manual button click.
+  const probeAndConnect = async (value: string) => {
+    const ok = await probe(value)
+    if (ok) document.getElementById('connectBtn')?.click()
   }
 
   useEffect(() => {
-    check()
+    void probe(getToken())
     onSettingsLoaded(() => {
       setTokenValue(getToken())
-      check()
+      void probe(getToken())
     })
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [])
 
-  const handleBlur = () => {
-    setToken(token)
-    check()
+  const handleChange = (value: string) => {
+    setTokenValue(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => { void probeAndConnect(value) }, 300)
+  }
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text').trim()
+    if (!pasted) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setTimeout(() => { void probeAndConnect(pasted) }, 0)
   }
 
   const dotColor = status === 'connected'
@@ -46,8 +71,8 @@ function TokenAndStatus({ onStatusChange }: { onStatusChange: (valid: boolean) =
       <input
         type="password"
         value={token}
-        onChange={(e) => setTokenValue(e.target.value)}
-        onBlur={handleBlur}
+        onChange={(e) => handleChange(e.target.value)}
+        onPaste={handlePaste}
         placeholder="Enter your Tessie API token"
         style={{
           height: 36,
@@ -93,8 +118,251 @@ const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
   color: active ? 'var(--color-text-highlight, #fff)' : 'var(--color-text-dim, #888)',
 })
 
+function pickedItemLabel(item: ActionItem): string {
+  // Strip the trailing chevron used for submenu rows in the on-glasses list.
+  return resolveLabel(item, null).replace(/\s*›\s*$/, '')
+}
+
+const rowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '10px 12px',
+  background: 'var(--color-surface)',
+  borderRadius: 'var(--radius-default)',
+}
+
+const iconBtnStyle: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  border: 'none',
+  borderRadius: 6,
+  background: 'transparent',
+  color: 'var(--color-text-dim)',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 18,
+  lineHeight: 1,
+  flexShrink: 0,
+}
+
+function QuickActionsEditor() {
+  const [ids, setIds] = useState<string[]>(() => getQuickActionIds() ?? defaultQuickActionIds())
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [targetIndex, setTargetIndex] = useState<number | null>(null)
+  const [dragOffsetY, setDragOffsetY] = useState(0)
+  const startY = useRef(0)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  useEffect(() => {
+    onQuickActionsLoaded(() => {
+      setIds(getQuickActionIds() ?? defaultQuickActionIds())
+    })
+  }, [])
+
+  // Returns the index where the dragged row should land after release,
+  // expressed in the post-removal array used by move(from, to).
+  // Skips the dragged row itself so its translated rect doesn't pollute hit-testing.
+  const insertIndexAtY = (clientY: number, fromIndex: number): number => {
+    const list = listRef.current
+    if (!list) return fromIndex
+    const rows = Array.from(list.children) as HTMLElement[]
+    let originalInsert = rows.length
+    for (let i = 0; i < rows.length; i++) {
+      if (i === fromIndex) continue
+      const r = rows[i].getBoundingClientRect()
+      if (clientY < r.top + r.height / 2) {
+        originalInsert = i
+        break
+      }
+    }
+    return originalInsert > fromIndex ? originalInsert - 1 : originalInsert
+  }
+
+  const catalog = actionCatalog()
+  const catalogById = new Map(catalog.map((item) => [getActionId(item), item]))
+
+  const picked = ids
+    .map((id) => ({ id, item: catalogById.get(id) }))
+    .filter((x): x is { id: string; item: ActionItem } => !!x.item)
+
+  const available = catalog.filter((item) => !ids.includes(getActionId(item)))
+
+  const commit = (next: string[]) => {
+    setIds(next)
+    void setQuickActionIds(next)
+  }
+
+  const move = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= ids.length || to >= ids.length) return
+    const next = ids.slice()
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    commit(next)
+  }
+
+  const remove = (id: string) => {
+    commit(ids.filter((x) => x !== id))
+  }
+
+  const add = (id: string) => {
+    commit([...ids, id])
+  }
+
+  const reset = () => {
+    commit(defaultQuickActionIds())
+  }
+
+  return (
+    <>
+      <h2 className="text-large-title" style={{ margin: `var(--spacing-cross) 0` }}>
+        Quick actions
+      </h2>
+
+      <div style={{
+        background: 'var(--color-surface)',
+        borderRadius: 'var(--radius-default)',
+        padding: 'var(--spacing-card-margin)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--spacing-cross)' }}>
+          <p className="text-normal-body" style={{ color: 'var(--color-text-dim)', margin: 0 }}>
+            Drag the handle to reorder, tap × to remove.
+          </p>
+          <button
+            onClick={reset}
+            className="text-subtitle"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--color-text-dim)',
+              cursor: 'pointer',
+              padding: 0,
+              textDecoration: 'underline',
+            }}
+          >
+            Reset
+          </button>
+        </div>
+
+        {picked.length === 0 ? (
+          <p className="text-subtitle" style={{ color: 'var(--color-text-dim)', margin: 0, padding: '12px 0' }}>
+            No quick actions selected. Add some below.
+          </p>
+        ) : (
+          <ul
+            ref={listRef}
+            style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}
+          >
+            {picked.map(({ id, item }, index) => {
+              const isDragging = dragId === id
+              return (
+                <li
+                  key={id}
+                  style={{
+                    ...rowStyle,
+                    transform: isDragging ? `translateY(${dragOffsetY}px)` : undefined,
+                    position: isDragging ? 'relative' : undefined,
+                    zIndex: isDragging ? 10 : undefined,
+                    boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.4)' : undefined,
+                    opacity: isDragging ? 0.92 : 1,
+                    touchAction: 'none',
+                  }}
+                >
+                  <span
+                    onPointerDown={(e) => {
+                      if (e.button !== undefined && e.button !== 0) return
+                      e.preventDefault()
+                      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                      startY.current = e.clientY
+                      setDragOffsetY(0)
+                      setDragId(id)
+                      setTargetIndex(index)
+                    }}
+                    onPointerMove={(e) => {
+                      if (dragId !== id) return
+                      setDragOffsetY(e.clientY - startY.current)
+                      const idx = insertIndexAtY(e.clientY, index)
+                      if (idx !== targetIndex) setTargetIndex(idx)
+                    }}
+                    onPointerUp={(e) => {
+                      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+                      if (dragId === id && targetIndex !== null && targetIndex !== index) {
+                        move(index, targetIndex)
+                      }
+                      setDragId(null)
+                      setTargetIndex(null)
+                      setDragOffsetY(0)
+                    }}
+                    onPointerCancel={() => {
+                      setDragId(null)
+                      setTargetIndex(null)
+                      setDragOffsetY(0)
+                    }}
+                    aria-label={`Drag ${pickedItemLabel(item)}`}
+                    style={{
+                      color: 'var(--color-text-dim)',
+                      fontSize: 18,
+                      lineHeight: 1,
+                      userSelect: 'none',
+                      WebkitUserSelect: 'none',
+                      touchAction: 'none',
+                      cursor: dragId === id ? 'grabbing' : 'grab',
+                      padding: '6px 4px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    ⋮⋮
+                  </span>
+                  <span className="text-medium-body" style={{ flex: 1, color: 'var(--color-text)' }}>
+                    {pickedItemLabel(item)}
+                  </span>
+                  <button
+                    onClick={() => remove(id)}
+                    aria-label={`Remove ${pickedItemLabel(item)}`}
+                    style={iconBtnStyle}
+                  >
+                    ×
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        {available.length > 0 && (
+          <>
+            <p className="text-subtitle" style={{ color: 'var(--color-text-dim)', margin: `var(--spacing-cross) 0 8px` }}>
+              Add action
+            </p>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {available.map((item) => {
+                const id = getActionId(item)
+                return (
+                  <li key={id} style={{ ...rowStyle, background: 'var(--color-input-bg, var(--color-surface))' }}>
+                    <span className="text-medium-body" style={{ flex: 1, color: 'var(--color-text-dim)' }}>
+                      {pickedItemLabel(item)}
+                    </span>
+                    <button
+                      onClick={() => add(id)}
+                      aria-label={`Add ${pickedItemLabel(item)}`}
+                      style={{ ...iconBtnStyle, color: 'var(--color-accent)' }}
+                    >
+                      +
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
+
 function SettingsPanel() {
-  const [tokenValid, setTokenValid] = useState(false)
   const [tempUnit, setTempUnitState] = useState<TempUnit>(getTempUnit())
   const [distUnit, setDistUnitState] = useState<DistUnit>(getDistUnit())
 
@@ -104,10 +372,6 @@ function SettingsPanel() {
       setDistUnitState(getDistUnit())
     })
   }, [])
-
-  const handleConnect = () => {
-    document.getElementById('connectBtn')?.click()
-  }
 
   return (
     <>
@@ -121,7 +385,7 @@ function SettingsPanel() {
         <p className="text-normal-body" style={{ color: 'var(--color-text-dim)', margin: `0 0 var(--spacing-cross)` }}>
           Generate the token at <a target="_new" href="https://dash.tessie.com/settings/developer">tessie.com</a>. Stored locally.
         </p>
-        <TokenAndStatus onStatusChange={setTokenValid} />
+        <TokenAndStatus />
       </div>
 
       <h2 className="text-large-title" style={{ margin: `var(--spacing-cross) 0` }}>Units</h2>
@@ -150,28 +414,7 @@ function SettingsPanel() {
         </div>
       </div>
 
-      <button
-        className="text-medium-title"
-        disabled={!tokenValid}
-        onClick={handleConnect}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          height: 48,
-          border: 'none',
-          borderRadius: 'var(--radius-default)',
-          background: 'var(--color-accent)',
-          color: 'var(--color-text-highlight)',
-          cursor: 'pointer',
-          marginTop: 'var(--spacing-cross)',
-          opacity: tokenValid ? 1 : 0.4,
-          pointerEvents: tokenValid ? 'auto' : 'none',
-        }}
-      >
-        Connect Tesla
-      </button>
+      <QuickActionsEditor />
     </>
   )
 }
