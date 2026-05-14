@@ -16,6 +16,10 @@ function TokenAndStatus() {
   // that for restored tokens.
   const probe = async (value: string): Promise<boolean> => {
     setToken(value)
+    if (!value) {
+      setStatus('disconnected')
+      return false
+    }
     setStatus('checking')
     const ok = await checkConnection()
     setStatus(ok ? 'connected' : 'disconnected')
