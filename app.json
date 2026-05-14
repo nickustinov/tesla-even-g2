@@ -2,7 +2,7 @@
   "package_id": "com.tesla.eveng2",
   "edition": "202601",
   "name": "Tesla",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "min_app_version": "0.1.0",
   "min_sdk_version": "0.0.10",
   "supported_languages": ["en"],
@@ -14,7 +14,13 @@
     {
       "name": "network",
       "desc": "Communicates with the Tessie API for vehicle state and commands, loads map tiles from CartoDB, and links to the Tessie dashboard for token generation.",
-      "whitelist": ["https://api.tessie.com", "https://basemaps.cartocdn.com", "https://dash.tessie.com"]
+      "whitelist": [
+        "https://api.tessie.com",
+        "https://basemaps.cartocdn.com",
+        "https://dash.tessie.com",
+        "http://www.w3.org",
+        "https://react.dev"
+      ]
     }
   ]
 }
